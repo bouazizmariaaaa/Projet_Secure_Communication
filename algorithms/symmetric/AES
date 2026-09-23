@@ -15,7 +15,7 @@ def aes_encrypt_block(key: bytes, plaintext_block: bytes) -> bytes:
     return ciphertext_block
 
 
-def aes_decrypt_block(key: bytes, ciphertext_block: bytes) -> bytes:
+def aes_decrypt_block(key: bytes, ciphertext_block: bytes) -> bytes
     if len(ciphertext_block) != 16:
         raise ValueError(
             f"AES sans mode ne peut déchiffrer qu'un bloc de 16 octets. "
