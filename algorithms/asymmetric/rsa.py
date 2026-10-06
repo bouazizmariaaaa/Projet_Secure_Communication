@@ -85,3 +85,7 @@ def chiffrer(message, cle_publique):
 def dechiffrer(chiffre, cle_privee):
     d, n = cle_privee
     return pow(chiffre, d, n)
+
+def generer_cles_auto(bits=512):
+    return generer_cles()
+
