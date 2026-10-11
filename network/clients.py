@@ -1,16 +1,23 @@
+import os
 import socket
+import sys
 import json
 import argparse
-from protocol import SecureProtocol
+
+RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if RACINE not in sys.path:
+    sys.path.insert(0, RACINE)
+
+from network.protocol import SecureProtocol
 
 def send_encrypted_message(host, port, algo, mode, key, iv, ciphertext):
     payload = SecureProtocol.create_message(algo, mode, key, iv, ciphertext)
-    
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.connect((host, port))
-        sock.sendall(payload.encode('utf-8'))
-        
+        sock.sendall((payload + "\n").encode('utf-8'))
+
         response = sock.recv(4096).decode('utf-8')
         print(f"Réponse : {response}")
     except Exception as e:
