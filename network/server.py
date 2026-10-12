@@ -197,5 +197,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
  
     start_server(args.host, args.port)
- 
-Claude a terminé sa réponse.
