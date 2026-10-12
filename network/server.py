@@ -1,15 +1,3 @@
-
-Cette réponse n’a pas pu être chargée.
-
-
-
-
-
-
-
-
-
-Server · PY
 import argparse
 import json
 import os
