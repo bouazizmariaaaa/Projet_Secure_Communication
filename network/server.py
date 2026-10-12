@@ -1,16 +1,28 @@
+
+Cette réponse n’a pas pu être chargée.
+
+
+
+
+
+
+
+
+
+Server · PY
 import argparse
 import json
 import os
 import socket
 import sys
 import threading
-
+ 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if RACINE not in sys.path:
     sys.path.insert(0, RACINE)
-
+ 
 from Crypto.PublicKey import RSA as CryptoRSA
-
+ 
 from network.protocol import SecureProtocol
 from algorithms.classical.caesar import caesar_decrypt
 from algorithms.classical.vigenere import vigenere_decrypt
@@ -20,9 +32,10 @@ from algorithms.asymmetric import rsa
 from algorithms.asymmetric import diffie_hellman as dh
 from algorithms.hash.sha256 import verify_sha256
 from algorithms.hash import signature
-
-P_MAX_DEMO = 100_000  
-
+ 
+P_MAX_DEMO = 100_000
+ 
+ 
 def dechiffrer_aes(mode, cle, iv, chiffre):
     if mode == "ECB":
         return aes_decrypt_ecb(chiffre, cle)
@@ -31,28 +44,27 @@ def dechiffrer_aes(mode, cle, iv, chiffre):
     if mode == "CTR":
         return aes_decrypt_ctr(chiffre, cle, iv)
     raise ValueError(f"Mode AES inconnu : {mode}")
-
-
+ 
+ 
 def erreur(texte):
     return {"status": "ERROR", "message": texte}
-
-
+ 
+ 
 def traiter_message(msg, etat):
-    """Déchiffre / vérifie un message selon son algorithme et renvoie la réponse (dict)."""
     algo = str(msg.get("algorithm", "")).lower()
     mode = str(msg.get("mode", "None")).upper()
     cle = msg.get("key", "")
     chiffre = msg.get("ciphertext", "")
-
+ 
     if algo == "caesar":
         clair = caesar_decrypt(chiffre, int(cle))
-
+ 
     elif algo == "vigenere":
         clair = vigenere_decrypt(chiffre, str(cle))
-
+ 
     elif algo == "playfair":
         clair = playfair_decrypt(chiffre, str(cle))
-
+ 
     elif algo == "aes":
         clair = dechiffrer_aes(
             mode,
@@ -60,12 +72,12 @@ def traiter_message(msg, etat):
             bytes.fromhex(msg.get("iv", "")),
             bytes.fromhex(chiffre),
         )
-
+ 
     elif algo == "rsa_pubkey":
         e, n = etat["rsa_pub"]
         return {"status": "SUCCESS", "message": "Clé publique RSA du serveur",
                 "e": str(e), "n": str(n)}
-
+ 
     elif algo == "rsa":
         morceaux = []
         for bloc in chiffre.split(","):
@@ -73,7 +85,7 @@ def traiter_message(msg, etat):
                 m = rsa.dechiffrer(int(bloc, 16), etat["rsa_priv"])
                 morceaux.append(m.to_bytes((m.bit_length() + 7) // 8, "big"))
         clair = b"".join(morceaux).decode("utf-8")
-
+ 
     elif algo == "sha256":
         message = msg.get("message", "")
         if verify_sha256(message, chiffre):
@@ -82,7 +94,7 @@ def traiter_message(msg, etat):
                     "decrypted": message}
         print("    Hash INVALIDE : le message a été modifié")
         return erreur("Hash invalide : le message a été modifié")
-
+ 
     elif algo == "signature":
         message = msg.get("message", "")
         cle_pub = CryptoRSA.import_key(cle)
@@ -92,7 +104,7 @@ def traiter_message(msg, etat):
                     "decrypted": message}
         print("    Signature INVALIDE")
         return erreur("Signature invalide : message altéré ou fausse signature")
-
+ 
     elif algo == "dh_init":
         p, g = int(msg["p"]), int(msg["g"])
         if p < 5 or p > P_MAX_DEMO or not dh.est_premier(p):
@@ -104,7 +116,7 @@ def traiter_message(msg, etat):
         print(f"    Diffie-Hellman : p={p}, g={g} acceptés (le secret b reste sur le serveur)")
         return {"status": "SUCCESS", "message": "Paramètres Diffie-Hellman acceptés",
                 "B": str(dh.cle_publique(g, b, p))}
-
+ 
     elif algo == "diffiehellman":
         if "dh" not in etat:
             return erreur("Envoie d'abord les paramètres (DH_INIT)")
@@ -114,17 +126,15 @@ def traiter_message(msg, etat):
             return erreur("Clé publique A invalide")
         cle_aes = dh.deriver_cle_aes(dh.cle_partagee(A, b, p))
         clair = aes_decrypt_cbc(bytes.fromhex(chiffre), cle_aes, bytes.fromhex(msg["iv"]))
-
+ 
     else:
         return erreur(f"Algorithme inconnu : {msg.get('algorithm')}")
-
+ 
     print(f"    Message déchiffré : {clair}")
     return {"status": "SUCCESS", "message": "Message reçu et déchiffré", "decrypted": clair}
-
-
+ 
+ 
 def lire_messages(sock):
-    """Lit les messages JSON reçus (avec ou sans retour à la ligne à la fin).
-    Renvoie None pour un message invalide."""
     decodeur = json.JSONDecoder()
     tampon = ""
     while True:
@@ -139,15 +149,15 @@ def lire_messages(sock):
             try:
                 objet, fin = decodeur.raw_decode(tampon)
             except json.JSONDecodeError:
-                if "\n" in tampon:  
+                if "\n" in tampon:
                     tampon = tampon.split("\n", 1)[1]
                     yield None
                     continue
-                break 
+                break
             tampon = tampon[fin:]
             yield objet if isinstance(objet, dict) else None
-
-
+ 
+ 
 def gerer_client(client_socket, addr, cles_rsa):
     print(f"[+] Connexion reçue de {addr}")
     etat = {"rsa_pub": cles_rsa[0], "rsa_priv": cles_rsa[1]}
@@ -169,18 +179,18 @@ def gerer_client(client_socket, addr, cles_rsa):
     finally:
         client_socket.close()
         print(f"[-] Connexion fermée ({addr})")
-
-
+ 
+ 
 def start_server(host, port):
     print("[*] Génération des clés RSA du serveur...")
     cles_rsa = rsa.generer_cles()
-
+ 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((host, port))
     server_socket.listen(5)
     print(f"[+] Serveur en écoute sur {host}:{port}... (Ctrl+C pour arrêter)")
-
+ 
     try:
         while True:
             client_socket, addr = server_socket.accept()
@@ -190,12 +200,14 @@ def start_server(host, port):
         print("\n[*] Arrêt du serveur.")
     finally:
         server_socket.close()
-
-
+ 
+ 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args()
-
+ 
     start_server(args.host, args.port)
+ 
+Claude a terminé sa réponse.
